@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 class Sequential:
     def __init__(self, lr, loss, batch_size = 100, layers=[]):
@@ -22,13 +23,14 @@ class Sequential:
 
         L = len(self.layers)
         B = int(np.ceil(x.shape[1] / self.batch_size))
+        time_progress = time.time()
 
         for itr in range(epochs):
-            y_hat = np.ndarray((y.shape[0], 0))
             for batch in range(B):
                 cache_z = [None] * L
                 cache_a = [None] * (L + 1)
                 cache_a[0] = x[:, batch * self.batch_size:(batch + 1) * self.batch_size]
+                _batch_y = y[:, batch * self.batch_size:(batch + 1) * self.batch_size]
                 _batch_size = cache_a[0].shape[1]
 
                 for l in range(L):
@@ -36,8 +38,11 @@ class Sequential:
                     cache_z[l] = np.dot(layer.w, cache_a[l]) + layer.b
                     cache_a[l + 1] = layer.a(cache_z[l])
 
-                y_hat = np.concatenate((y_hat, cache_a[L]), axis = 1)
-                cache_da = self.d_loss(cache_a[L], y[:, batch * self.batch_size:(batch + 1) * self.batch_size])
+                if time.time() - time_progress > 0.5:
+                    time_progress = time.time()
+                    print("\riteration %10d, mean_loss: %.6f"% (itr + 1, self.mean_loss(cache_a[L], _batch_y)), end='')
+
+                cache_da = self.d_loss(cache_a[L], _batch_y)
 
                 for l in reversed(range(L)):
                     layer = self.layers[l]
@@ -51,7 +56,7 @@ class Sequential:
                     layer.w -= self.lr * dw
                     layer.b -= self.lr * db
 
-            print("iteration %10d, error %.6f"% (itr + 1, self.error(y_hat, y)))
+            print("\riteration %10d, mean_loss: %.6f"% (itr + 1, self.mean_loss(cache_a[L], _batch_y)))
 
     def d_loss(self, a, y):
         if self.loss == 'log':
@@ -66,7 +71,7 @@ class Sequential:
         else: # self.loss == 'se'
             return 2 * (a - y)
 
-    def error(self, a, y):
+    def mean_loss(self, a, y):
         batch_size = y.shape[1]
         if self.loss == 'log':
             return np.sum(-y * np.log(a) - (1 - y) * np.log(1 - a)) / batch_size
