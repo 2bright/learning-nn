@@ -1,5 +1,7 @@
 import numpy as np
 import time
+import warnings
+warnings.filterwarnings('ignore', category = RuntimeWarning)
 
 class Sequential:
     def __init__(self, lr, loss, batch_size = 100, layers=[]):
@@ -48,10 +50,20 @@ class Sequential:
                     layer = self.layers[l]
 
                     cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l+1])
-                    cache_da = np.dot(layer.w.transpose(), cache_dz)
 
                     dw = np.dot(cache_dz, cache_a[l].transpose()) / _batch_size
                     db = np.sum(cache_dz, axis = 1, keepdims = True) / _batch_size
+
+                    if layer.activation == 'x_relu':
+                        dt = layer.dt(cache_da, cache_z[l]) / _batch_size
+                        dp = layer.dp(cache_da, cache_z[l]) / _batch_size
+                        dn = layer.dn(cache_da, cache_z[l]) / _batch_size
+
+                        layer.x_relu_t -= self.lr * dt
+                        layer.x_relu_p -= self.lr * dp
+                        layer.x_relu_n -= self.lr * dn
+
+                    cache_da = np.dot(layer.w.transpose(), cache_dz)
 
                     layer.w -= self.lr * dw
                     layer.b -= self.lr * db
