@@ -14,7 +14,7 @@ model = nn.models.Sequential(lr = 0.5, loss = 'log', batch_size = 50, layers = [
     nn.layers.Dense(units = y_train.shape[0], input_dim = 512, activation = 'sigmoid')
 ])
 
-model.fit(x_train, y_train, epochs=1)
+model.fit(x_train, y_train, epochs=5)
 
 print('predict -------------------------------------')
 a_test = model.predict(x_test)

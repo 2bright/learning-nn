@@ -1,20 +1,40 @@
 import numpy as np
 import os, sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../')
+file_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(file_dir + '/../')
 import library as nn
 
 mnist = nn.datasets.mnist
 
-(x_train, x_test) = mnist.load_images(column_vector=True, normalized=True)
-(y_train, y_test) = mnist.load_labels(column_vector=True, bit_vector=True)
+(x_train, y_train, x_test, y_test) = mnist.load(file_dir + '/../data/mnist')
 
-model = nn.models.Sequential(layers = [
-  nn.layers.Dense(units = 1, input_dim = 1, activation = 'relu'),
-  tf.keras.layers.Flatten(),
-  tf.keras.layers.Dense(512, activation=tf.nn.relu),
-  tf.keras.layers.Dropout(0.2),
-  tf.keras.layers.Dense(10, activation=tf.nn.softmax)
-], lr = 0.2, loss = 'log')
+print('train -------------------------------------')
+model = nn.models.Sequential(lr = 0.5, loss = 'log', batch_size = 50, layers = [
+    nn.layers.Dense(units = 512, input_dim = x_train.shape[0], activation = 'relu'),
+    nn.layers.Dense(units = y_train.shape[0], input_dim = 512, activation = 'sigmoid')
+])
 
 model.fit(x_train, y_train, epochs=5)
-model.evaluate(x_test, y_test)
+
+print('predict -------------------------------------')
+a_test = model.predict(x_test)
+a_test = np.floor(a_test * 1.9999)
+
+diff_0 = [[1 if (y_test[j][i] == 0 and a_test[j][i] == 0) else 0 for i in range(len(y_test[j]))] for j in range(10)]
+diff_1 = [[1 if (y_test[j][i] == 1 and a_test[j][i] == 1) else 0 for i in range(len(y_test[j]))] for j in range(10)]
+
+accuracy_0 = 100 * np.sum(diff_0, axis = 1) / - np.sum(y_test - 1, axis = 1)
+accuracy_1 = 100 * np.sum(diff_1, axis = 1) / np.sum(y_test, axis = 1)
+
+for d in range(10):
+    print('digit %d, accuracy_1: %g %%, accuracy_0: %g %%'% (d, accuracy_1[d], accuracy_0[d]))
+
+# bit vector to digit
+
+y_test_digit = mnist.b2d(y_test)
+a_test_digit = mnist.b2d(a_test)
+
+diff = [1 if (y_test_digit[0][i] == a_test_digit[0][i]) else 0 for i in range(len(y_test_digit[0]))]
+accuracy = 100 * np.sum(diff) / len(diff)
+
+print('accuracy:', accuracy, '%')

@@ -87,7 +87,7 @@ class Sequential:
         batch_size = y.shape[1]
         if self.loss == 'log':
             return np.sum(-y * np.log(a) - (1 - y) * np.log(1 - a)) / batch_size
-        else:
+        else: # self.loss == 'se'
             return np.sum(np.abs(a - y)) / batch_size
 
     def predict(self, x):

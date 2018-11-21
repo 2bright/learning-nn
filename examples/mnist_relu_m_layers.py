@@ -11,7 +11,8 @@ mnist = nn.datasets.mnist
 print('train -------------------------------------')
 model = nn.models.Sequential(lr = 0.5, loss = 'log', batch_size = 50, layers = [
     nn.layers.Dense(units = 512, input_dim = x_train.shape[0], activation = 'relu'),
-    nn.layers.Dense(units = y_train.shape[0], input_dim = 512, activation = 'sigmoid')
+    nn.layers.Dense(units = 64, input_dim = 512, activation = 'relu'),
+    nn.layers.Dense(units = y_train.shape[0], input_dim = 64, activation = 'sigmoid')
 ])
 
 model.fit(x_train, y_train, epochs=5)
