@@ -19,16 +19,14 @@ print('predict -------------------------------------')
 a_test = model.predict(x_test)
 a_test = np.floor(a_test * 1.9999)
 
-diff = [[1 if (y_test[j][i] == a_test[j][i]) else 0 for i in range(len(y_test[j]))] for j in range(10)]
 diff_0 = [[1 if (y_test[j][i] == 0 and a_test[j][i] == 0) else 0 for i in range(len(y_test[j]))] for j in range(10)]
 diff_1 = [[1 if (y_test[j][i] == 1 and a_test[j][i] == 1) else 0 for i in range(len(y_test[j]))] for j in range(10)]
 
-accuracy = 100 * np.sum(diff, axis = 1) / len(diff[0])
 accuracy_0 = 100 * np.sum(diff_0, axis = 1) / - np.sum(y_test - 1, axis = 1)
 accuracy_1 = 100 * np.sum(diff_1, axis = 1) / np.sum(y_test, axis = 1)
 
 for d in range(10):
-    print('digit %d, accuracy_1: %g %%, accuracy_0: %g %%, accuracy_all: %g %%'% (d, accuracy_1[d], accuracy_0[d], accuracy[d]))
+    print('digit %d, accuracy_1: %g %%, accuracy_0: %g %%'% (d, accuracy_1[d], accuracy_0[d]))
 
 # bit vector to digit
 

@@ -26,14 +26,11 @@ print('predict -------------------------------------')
 a_test = model.predict(x_test)
 a_test = np.floor(a_test * 1.9999)
 
-diff = [1 if (y_test[0][i] == a_test[0][i]) else 0 for i in range(len(y_test[0]))]
 diff_0 = [1 if (y_test[0][i] == 0 and a_test[0][i] == 0) else 0 for i in range(len(y_test[0]))]
 diff_1 = [1 if (y_test[0][i] == 1 and a_test[0][i] == 1) else 0 for i in range(len(y_test[0]))]
 
-accuracy = 100 * np.sum(diff) / len(diff)
 accuracy_0 = 100 * np.sum(diff_0) / - np.sum(y_test - 1)
 accuracy_1 = 100 * np.sum(diff_1) / np.sum(y_test)
 
-print('accuracy  :', accuracy, '%')
 print('accuracy_0:', accuracy_0, '%')
 print('accuracy_1:', accuracy_1, '%')
