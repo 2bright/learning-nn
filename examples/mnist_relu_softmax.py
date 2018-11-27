@@ -20,7 +20,7 @@ model.fit(x_train, y_train, epochs=5)
 print('metrics on train set -------------------------------------')
 a_train = model.predict(x_train)
 
-y_train_digit = y_train.reshape(1, len(y_train))
+y_train_digit = nn.datasets.mnist.b2d_softmax(y_train.T)
 a_train_digit = nn.datasets.mnist.b2d_softmax(a_train.T)
 
 diff = [1 if (y_train_digit[0][i] == a_train_digit[0][i]) else 0 for i in range(len(y_train_digit[0]))]
@@ -31,7 +31,7 @@ print('accuracy:', accuracy, '%')
 print('metrics on test set -------------------------------------')
 a_test = model.predict(x_test)
 
-y_test_digit = y_test.reshape(1, len(y_test))
+y_test_digit = nn.datasets.mnist.b2d_softmax(y_test.T)
 a_test_digit = nn.datasets.mnist.b2d_softmax(a_test.T)
 
 diff = [1 if (y_test_digit[0][i] == a_test_digit[0][i]) else 0 for i in range(len(y_test_digit[0]))]
