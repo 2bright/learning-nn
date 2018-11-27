@@ -5,15 +5,18 @@ import json
 from .layers import *
 
 class Sequential:
-    def __init__(self, lr, loss, batch_size = 100, layers = [], save_path = './storage', L2_lambd = 0, use_batch_norm = True, epsilon = 1e-8):
+    def __init__(self, lr, loss, batch_size = 100, layers = [], optimizer = 'adam', save_path = './storage', L2_lambd = 0, use_batch_norm = True, epsilon = 1e-8, beta1 = 0.9, beta2 = 0.999):
         self.lr = lr
         self.loss = loss
         self.layers = layers
+        self.optimizer = optimizer
         self.batch_size = batch_size
         self.save_path = save_path
+        self.L2_lambd = L2_lambd
         self.use_batch_norm = use_batch_norm
         self.epsilon = epsilon
-        self.L2_lambd = L2_lambd
+        self.beta1 = beta1
+        self.beta2 = beta2
 
     def add(self, layer):
         self.layers.append(layer)
@@ -63,6 +66,13 @@ class Sequential:
         L = len(self.layers)
         B = int(np.ceil(x.shape[1] / self.batch_size))
         time_progress = time.time()
+
+        Vdg = [0] * (L + 1)
+        Vdw = [0] * (L + 1)
+        Vdb = [0] * (L + 1)
+        Sdg = [0] * (L + 1)
+        Sdw = [0] * (L + 1)
+        Sdb = [0] * (L + 1)
 
         for itr in range(epochs):
             for batch in range(B):
@@ -144,10 +154,23 @@ class Sequential:
                         dG = np.einsum('ij,ij->i', cache_dz_bn, cache_Z_norm[l]).reshape(cache_dz_bn.shape[0], 1) / _B
                         dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
                         dB = np.sum(cache_dz_bn, axis = 1, keepdims = True) / _B
+
+                        Vdg[l] = self.beta1 * Vdg[l] + (1 - self.beta1) * dG
+                        Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
+                        Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
+                        Sdg[l] = self.beta2 * Sdg[l] + (1 - self.beta2) * dG * dG
+                        Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
+                        Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
                     else:
                         cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l])
+
                         dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
                         dB = np.sum(cache_dz, axis = 1, keepdims = True) / _B
+
+                        Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
+                        Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
+                        Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
+                        Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
 
                     if callable(self.lr):
                         lr = self.lr(itr)
@@ -155,6 +178,7 @@ class Sequential:
                         lr = self.lr
 
                     if layer.activation == 'x_relu':
+                        # TODO adam
                         dt = layer.dt(cache_da, cache_z[l]) / _B
                         dp = layer.dp(cache_da, cache_z[l]) / _B
                         dn = layer.dn(cache_da, cache_z[l]) / _B
@@ -165,13 +189,22 @@ class Sequential:
 
                     cache_da = np.dot(layer.w.transpose(), cache_dz)
 
-                    if self.use_batch_norm:
-                        layer.g -= lr * dG
-                        layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * dW
-                        layer.b -= lr * dB
+                    if self.optimizer == 'adam':
+                        if self.use_batch_norm:
+                            layer.g -= lr * (Vdg[l] / (1 - self.beta1)) / (np.sqrt(Sdg[l] / (1 - self.beta2)) + self.epsilon)
+                            layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * (Vdw[l] / (1 - self.beta1)) / (np.sqrt(Sdw[l] / (1 - self.beta2)) + self.epsilon)
+                            layer.b -= lr * (Vdb[l] / (1 - self.beta1)) / (np.sqrt(Sdb[l] / (1 - self.beta2)) + self.epsilon)
+                        else:
+                            layer.w -= lr * (Vdw[l] / (1 - self.beta1)) / (np.sqrt(Sdw[l] / (1 - self.beta2)) + self.epsilon)
+                            layer.b -= lr * (Vdb[l] / (1 - self.beta1)) / (np.sqrt(Sdb[l] / (1 - self.beta2)) + self.epsilon)
                     else:
-                        layer.w -= lr * dW
-                        layer.b -= lr * dB
+                        if self.use_batch_norm:
+                            layer.g -= lr * dG
+                            layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * dW
+                            layer.b -= lr * dB
+                        else:
+                            layer.w -= lr * dW
+                            layer.b -= lr * dB
 
             print("\riteration %10d, mean_loss: %.6f"% (itr + 1, self.mean_loss(cache_a[L], _batch_y)))
 

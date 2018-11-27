@@ -13,7 +13,7 @@ model = nn.models.Sequential(lr = lambda itr: np.power(0.95, itr) * 0.2, loss = 
     nn.layers.Dense(units = 512, input_dim = x_train.shape[0], activation = 'relu'),
     nn.layers.Dropout(0.2),
     nn.layers.Dense(units = y_train.shape[0], input_dim = 512, activation = 'softmax')
-], use_batch_norm = True, L2_lambd = 10)
+], use_batch_norm = True, L2_lambd = 10, optimizer = 'adam')
 
 model.fit(x_train, y_train, epochs=5)
 
