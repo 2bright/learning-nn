@@ -67,12 +67,14 @@ class Sequential:
         B = int(np.ceil(x.shape[1] / self.batch_size))
         time_progress = time.time()
 
-        Vdg = [0] * (L + 1)
-        Vdw = [0] * (L + 1)
-        Vdb = [0] * (L + 1)
-        Sdg = [0] * (L + 1)
-        Sdw = [0] * (L + 1)
-        Sdb = [0] * (L + 1)
+        if self.optimizer == 'adam':
+            adam_t = 1
+            Vdg = [0] * (L + 1)
+            Vdw = [0] * (L + 1)
+            Vdb = [0] * (L + 1)
+            Sdg = [0] * (L + 1)
+            Sdw = [0] * (L + 1)
+            Sdb = [0] * (L + 1)
 
         for itr in range(epochs):
             for batch in range(B):
@@ -155,22 +157,24 @@ class Sequential:
                         dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
                         dB = np.sum(cache_dz_bn, axis = 1, keepdims = True) / _B
 
-                        Vdg[l] = self.beta1 * Vdg[l] + (1 - self.beta1) * dG
-                        Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
-                        Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
-                        Sdg[l] = self.beta2 * Sdg[l] + (1 - self.beta2) * dG * dG
-                        Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
-                        Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
+                        if self.optimizer == 'adam':
+                            Vdg[l] = self.beta1 * Vdg[l] + (1 - self.beta1) * dG
+                            Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
+                            Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
+                            Sdg[l] = self.beta2 * Sdg[l] + (1 - self.beta2) * dG * dG
+                            Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
+                            Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
                     else:
                         cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l])
 
                         dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
                         dB = np.sum(cache_dz, axis = 1, keepdims = True) / _B
 
-                        Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
-                        Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
-                        Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
-                        Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
+                        if self.optimizer == 'adam':
+                            Vdw[l] = self.beta1 * Vdw[l] + (1 - self.beta1) * dW
+                            Vdb[l] = self.beta1 * Vdb[l] + (1 - self.beta1) * dB
+                            Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
+                            Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
 
                     if callable(self.lr):
                         lr = self.lr(itr)
@@ -190,13 +194,16 @@ class Sequential:
                     cache_da = np.dot(layer.w.transpose(), cache_dz)
 
                     if self.optimizer == 'adam':
+                        V_fix = 1 - np.power(self.beta1, adam_t)
+                        S_fix = 1 - np.power(self.beta2, adam_t)
+                        adam_t += 1
                         if self.use_batch_norm:
-                            layer.g -= lr * (Vdg[l] / (1 - self.beta1)) / (np.sqrt(Sdg[l] / (1 - self.beta2)) + self.epsilon)
-                            layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * (Vdw[l] / (1 - self.beta1)) / (np.sqrt(Sdw[l] / (1 - self.beta2)) + self.epsilon)
-                            layer.b -= lr * (Vdb[l] / (1 - self.beta1)) / (np.sqrt(Sdb[l] / (1 - self.beta2)) + self.epsilon)
+                            layer.g -= lr * (Vdg[l] / V_fix) / (np.sqrt(Sdg[l] / S_fix) + self.epsilon)
+                            layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * (Vdw[l] / V_fix) / (np.sqrt(Sdw[l] / S_fix) + self.epsilon)
+                            layer.b -= lr * (Vdb[l] / V_fix) / (np.sqrt(Sdb[l] / S_fix) + self.epsilon)
                         else:
-                            layer.w -= lr * (Vdw[l] / (1 - self.beta1)) / (np.sqrt(Sdw[l] / (1 - self.beta2)) + self.epsilon)
-                            layer.b -= lr * (Vdb[l] / (1 - self.beta1)) / (np.sqrt(Sdb[l] / (1 - self.beta2)) + self.epsilon)
+                            layer.w -= lr * (Vdw[l] / V_fix) / (np.sqrt(Sdw[l] / S_fix) + self.epsilon)
+                            layer.b -= lr * (Vdb[l] / V_fix) / (np.sqrt(Sdb[l] / S_fix) + self.epsilon)
                     else:
                         if self.use_batch_norm:
                             layer.g -= lr * dG
