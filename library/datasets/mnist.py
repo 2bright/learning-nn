@@ -55,6 +55,20 @@ def b2d_element_wise(v):
 def b2d(y):
     return np.array([[b2d_element_wise(v) for v in y.transpose()]])
 
+def b2d_element_wise_softmax(v):
+    max_e = 0
+    d = 0
+
+    for i in range(10):
+        if v[i] > max_e:
+            max_e = v[i]
+            d = i
+
+    return d
+
+def b2d_softmax(y):
+    return np.array([[b2d_element_wise_softmax(v) for v in y.transpose()]])
+
 def preview(indices, x, y):
     x = x.transpose()
     y_d = b2d(y)
