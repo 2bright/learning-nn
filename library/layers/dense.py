@@ -1,6 +1,4 @@
 import numpy as np
-import warnings
-warnings.filterwarnings('ignore', message = 'overflow encountered in exp')
 
 class Dense:
     def __init__(self, units, input_dim, activation):

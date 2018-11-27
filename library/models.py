@@ -1,17 +1,51 @@
 import numpy as np
 import time
-import warnings
-warnings.filterwarnings('ignore', category = RuntimeWarning)
+from datetime import datetime
+import json
+from .layers import *
 
 class Sequential:
-    def __init__(self, lr, loss, batch_size = 100, layers=[]):
+    def __init__(self, lr, loss, batch_size = 100, layers = [], save_path = './storage'):
         self.lr = lr
         self.loss = loss
         self.layers = layers
         self.batch_size = batch_size
+        self.save_path = save_path
 
     def add(self, layer):
         self.layers.append(layer)
+
+    def hyperparameters():
+        return {
+                'learning_rate': self.learning_rate,
+                'loss_function': self.loss,
+                'batch_size': self.batch_size,
+                'layers': [layer.hyperparameters() for layer in self.layers]
+                }
+
+    def save_model(save_path = None):
+        if save_path == None:
+            save_path = self.save_path + '/' + datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        with open(save_path + '/hyperparameters.json') as json_file:
+            json_file.write(json.dumps(self.hyperparameters()))
+
+        with open(save_path + '/parameters.json') as json_file:
+            json_file.write(json.dumps(self.parameters()))
+
+        with open(save_path + '/metrics.json') as json_file:
+            json_file.write(json.dumps(self.metrics()))
+
+        self.save_metrics_plot(save_path)
+
+    def save_metrics_plot(save_path = None):
+        metrics = self.metrics()
+
+        # costs through iterations
+
+
+        # user specified metrics
+        pass
 
     def fit(self, x, y, epochs):
         if x.ndim == 1:
@@ -37,8 +71,13 @@ class Sequential:
 
                 for l in range(L):
                     layer = self.layers[l]
-                    cache_z[l] = np.dot(layer.w, cache_a[l]) + layer.b
-                    cache_a[l + 1] = layer.a(cache_z[l])
+
+                    if isinstance(layer, Dropout):
+                        cache_z[l] = None
+                        cache_a[l + 1] = np.multiply(cache_a[l], np.random.random(cache_a[l].shape) > layer.rate) / (1 - layer.rate)
+                    else:
+                        cache_z[l] = np.dot(layer.w, cache_a[l]) + layer.b
+                        cache_a[l + 1] = layer.a(cache_z[l])
 
                 if time.time() - time_progress > 0.5:
                     time_progress = time.time()
@@ -48,6 +87,9 @@ class Sequential:
 
                 for l in reversed(range(L)):
                     layer = self.layers[l]
+
+                    if isinstance(layer, Dropout):
+                        continue
 
                     cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l+1])
 
@@ -102,6 +144,10 @@ class Sequential:
 
         for l in range(L):
             layer = self.layers[l]
+
+            if isinstance(layer, Dropout):
+                continue
+
             z = np.dot(layer.w, a) + layer.b
             a = layer.a(z)
 
