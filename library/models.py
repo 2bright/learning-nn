@@ -5,7 +5,7 @@ import json
 from .layers import *
 
 class Sequential:
-    def __init__(self, lr, loss, batch_size = 100, layers = [], optimizer = 'adam', save_path = './storage', L2_lambd = 0, use_batch_norm = True, epsilon = 1e-8, beta1 = 0.9, beta2 = 0.999):
+    def __init__(self, lr, loss, batch_size = 100, layers = [], optimizer = 'gd', save_path = './storage', L2_lambd = 0, use_batch_norm = False, epsilon = 1e-8, beta1 = 0.9, beta2 = 0.999):
         self.lr = lr
         self.loss = loss
         self.layers = layers
