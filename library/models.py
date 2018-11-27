@@ -63,21 +63,21 @@ class Sequential:
 
         for itr in range(epochs):
             for batch in range(B):
-                cache_z = [None] * L
+                cache_z = [None] * (L + 1)
                 cache_a = [None] * (L + 1)
                 cache_a[0] = x[:, batch * self.batch_size:(batch + 1) * self.batch_size]
                 _batch_y = y[:, batch * self.batch_size:(batch + 1) * self.batch_size]
                 _batch_size = cache_a[0].shape[1]
 
-                for l in range(L):
-                    layer = self.layers[l]
+                for l in range(1, L + 1):
+                    layer = self.layers[l - 1]
 
                     if isinstance(layer, Dropout):
                         cache_z[l] = None
-                        cache_a[l + 1] = np.multiply(cache_a[l], np.random.random(cache_a[l].shape) > layer.rate) / (1 - layer.rate)
+                        cache_a[l] = np.multiply(cache_a[l - 1], np.random.random(cache_a[l - 1].shape) > layer.rate) / (1 - layer.rate)
                     else:
-                        cache_z[l] = np.dot(layer.w, cache_a[l]) + layer.b
-                        cache_a[l + 1] = layer.a(cache_z[l])
+                        cache_z[l] = np.dot(layer.w, cache_a[l - 1]) + layer.b
+                        cache_a[l] = layer.a(cache_z[l])
 
                 if time.time() - time_progress > 0.5:
                     time_progress = time.time()
@@ -85,15 +85,15 @@ class Sequential:
 
                 cache_da = self.d_loss(cache_a[L], _batch_y)
 
-                for l in reversed(range(L)):
-                    layer = self.layers[l]
+                for l in reversed(range(1, L + 1)):
+                    layer = self.layers[l - 1]
 
                     if isinstance(layer, Dropout):
                         continue
 
-                    cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l+1])
+                    cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l])
 
-                    dw = np.dot(cache_dz, cache_a[l].transpose()) / _batch_size
+                    dw = np.dot(cache_dz, cache_a[l - 1].transpose()) / _batch_size
                     db = np.sum(cache_dz, axis = 1, keepdims = True) / _batch_size
 
                     if layer.activation == 'x_relu':
