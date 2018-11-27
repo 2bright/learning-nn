@@ -9,11 +9,11 @@ mnist = nn.datasets.mnist
 (x_train, y_train, x_test, y_test) = mnist.load(file_dir + '/../data/mnist')
 
 print('train -------------------------------------')
-model = nn.models.Sequential(lr = 0.5, loss = 'softmax_log', batch_size = 50, layers = [
+model = nn.models.Sequential(lr = lambda itr: np.power(0.95, itr) * 0.2, loss = 'softmax_log', batch_size = 50, layers = [
     nn.layers.Dense(units = 512, input_dim = x_train.shape[0], activation = 'relu'),
     nn.layers.Dropout(0.2),
     nn.layers.Dense(units = y_train.shape[0], input_dim = 512, activation = 'softmax')
-], use_batch_norm = True)
+], use_batch_norm = True, L2_lambd = 10)
 
 model.fit(x_train, y_train, epochs=5)
 

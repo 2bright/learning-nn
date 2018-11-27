@@ -5,7 +5,7 @@ import json
 from .layers import *
 
 class Sequential:
-    def __init__(self, lr, loss, batch_size = 100, layers = [], save_path = './storage', use_batch_norm = True, epsilon = 1e-8):
+    def __init__(self, lr, loss, batch_size = 100, layers = [], save_path = './storage', L2_lambd = 0, use_batch_norm = True, epsilon = 1e-8):
         self.lr = lr
         self.loss = loss
         self.layers = layers
@@ -13,6 +13,7 @@ class Sequential:
         self.save_path = save_path
         self.use_batch_norm = use_batch_norm
         self.epsilon = epsilon
+        self.L2_lambd = L2_lambd
 
     def add(self, layer):
         self.layers.append(layer)
@@ -148,24 +149,29 @@ class Sequential:
                         dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
                         dB = np.sum(cache_dz, axis = 1, keepdims = True) / _B
 
+                    if callable(self.lr):
+                        lr = self.lr(itr)
+                    else:
+                        lr = self.lr
+
                     if layer.activation == 'x_relu':
                         dt = layer.dt(cache_da, cache_z[l]) / _B
                         dp = layer.dp(cache_da, cache_z[l]) / _B
                         dn = layer.dn(cache_da, cache_z[l]) / _B
 
-                        layer.x_relu_t -= self.lr * dt
-                        layer.x_relu_p -= self.lr * dp
-                        layer.x_relu_n -= self.lr * dn
+                        layer.x_relu_t -= lr * dt
+                        layer.x_relu_p -= lr * dp
+                        layer.x_relu_n -= lr * dn
 
                     cache_da = np.dot(layer.w.transpose(), cache_dz)
 
                     if self.use_batch_norm:
-                        layer.g -= self.lr * dG
-                        layer.w -= self.lr * dW
-                        layer.b -= self.lr * dB
+                        layer.g -= lr * dG
+                        layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * dW
+                        layer.b -= lr * dB
                     else:
-                        layer.w -= self.lr * dW
-                        layer.b -= self.lr * dB
+                        layer.w -= lr * dW
+                        layer.b -= lr * dB
 
             print("\riteration %10d, mean_loss: %.6f"% (itr + 1, self.mean_loss(cache_a[L], _batch_y)))
 
