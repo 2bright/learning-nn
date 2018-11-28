@@ -37,8 +37,9 @@ class Dense:
                 return p if v > t else n
             return np.multiply(da, np.vectorize(d_x_relu)(z, self.x_relu_t, self.x_relu_p, self.x_relu_n))
         elif self.activation == 'softmax':
-            tmp = np.multiply(da, a)
-            return tmp - np.einsum('ij,kj->ij', a, tmp)
+            return np.multiply(da, a * (1 - a))
+            # tmp = np.multiply(da, a)
+            # return tmp - np.einsum('ij,kj->ij', a, tmp)
         else: # self.activation == 'linear'
             return 1
 
