@@ -105,37 +105,11 @@ class Sequential:
                         cache_Z_norm[l] = (cache_z[l] - mean) / cache_Z_svar[l]
                         cache_Z_bn[l] = np.multiply(layer.g, cache_Z_norm[l]) + layer.b
                         cache_a[l] = layer.a(cache_Z_bn[l])
-
-                        # if not isinstance(layer, Dropout) and np.amax(cache_Z_bn[l]) > 100:
-                        #     max_index = np.unravel_index(np.argmax(cache_Z_bn[l]), cache_Z_bn[l].shape)
-                        #     print(layer.w[max_index[0]])
-                        #     print(cache_a[l - 1][:, max_index[1]])
-
-                        #     print(np.amax(layer.w[max_index[0]]))
-                        #     print(np.amax(cache_a[l - 1][:, max_index[1]]))
-                        #     print('mult max', np.amax(layer.w[max_index[0]] * cache_a[l - 1][:, max_index[1]]))
-                        #     print('mult sum', np.sum(layer.w[max_index[0]] * cache_a[l - 1][:, max_index[1]]))
-                        #     print(layer.b[max_index[0]])
-                        #     print(max_index)
-                        #     print('max z', np.dot(layer.w[max_index[0]], cache_a[l - 1][:, max_index[1]]) + layer.b[max_index[0]])
-                        #     print('--------------------' + str(l), np.amax(cache_Z_bn[l]))
                     else:
                         cache_z[l] = np.dot(layer.w, cache_a[l - 1]) + layer.b
+                        #print('layer:', l, 'max z:', np.max(cache_z[l]), 'max w:', np.max(layer.w), 'max b:', np.max(layer.b), 'max a:', np.max(cache_a[l - 1]))
+                        #print('layer:', l, 'min z:', np.min(cache_z[l]), 'min w:', np.min(layer.w), 'min b:', np.min(layer.b), 'min a:', np.min(cache_a[l - 1]))
                         cache_a[l] = layer.a(cache_z[l])
-
-                        # if not isinstance(layer, Dropout) and np.amax(cache_z[l]) > 100:
-                        #     max_index = np.unravel_index(np.argmax(cache_z[l]), cache_z[l].shape)
-                        #     print(layer.w[max_index[0]])
-                        #     print(cache_a[l - 1][:, max_index[1]])
-
-                        #     print(np.amax(layer.w[max_index[0]]))
-                        #     print(np.amax(cache_a[l - 1][:, max_index[1]]))
-                        #     print('mult max', np.amax(layer.w[max_index[0]] * cache_a[l - 1][:, max_index[1]]))
-                        #     print('mult sum', np.sum(layer.w[max_index[0]] * cache_a[l - 1][:, max_index[1]]))
-                        #     print(layer.b[max_index[0]])
-                        #     print(max_index)
-                        #     print('max z', np.dot(layer.w[max_index[0]], cache_a[l - 1][:, max_index[1]]) + layer.b[max_index[0]])
-                        #     print('--------------------' + str(l), np.amax(cache_z[l]))
 
                 if time.time() - time_progress > 0.5:
                     time_progress = time.time()
@@ -150,11 +124,11 @@ class Sequential:
                         continue
 
                     if self.use_batch_norm:
-                        cache_dz_bn = cache_da * layer.d_a(cache_Z_bn[l], cache_a[l])
+                        cache_dz_bn = layer.d_a(cache_Z_bn[l], cache_a[l], cache_da)
                         cache_dz = cache_dz_bn * layer.g * (1 - 1 / _B - (cache_Z_bn[l] * cache_Z_bn[l]) / _B) / cache_Z_svar[l]
 
                         dG = np.einsum('ij,ij->i', cache_dz_bn, cache_Z_norm[l]).reshape(cache_dz_bn.shape[0], 1) / _B
-                        dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
+                        dW = np.dot(cache_dz, cache_a[l - 1].T) / _B
                         dB = np.sum(cache_dz_bn, axis = 1, keepdims = True) / _B
 
                         if self.optimizer == 'adam':
@@ -165,9 +139,9 @@ class Sequential:
                             Sdw[l] = self.beta2 * Sdw[l] + (1 - self.beta2) * dW * dW
                             Sdb[l] = self.beta2 * Sdb[l] + (1 - self.beta2) * dB * dB
                     else:
-                        cache_dz = cache_da * layer.d_a(cache_z[l], cache_a[l])
+                        cache_dz = layer.d_a(cache_z[l], cache_a[l], cache_da)
 
-                        dW = np.dot(cache_dz, cache_a[l - 1].transpose()) / _B
+                        dW = np.dot(cache_dz, cache_a[l - 1].T) / _B
                         dB = np.sum(cache_dz, axis = 1, keepdims = True) / _B
 
                         if self.optimizer == 'adam':
@@ -191,7 +165,7 @@ class Sequential:
                         layer.x_relu_p -= lr * dp
                         layer.x_relu_n -= lr * dn
 
-                    cache_da = np.dot(layer.w.transpose(), cache_dz)
+                    cache_da = np.dot(layer.w.T, cache_dz)
 
                     if self.optimizer == 'adam':
                         V_fix = 1 - np.power(self.beta1, adam_t)
@@ -202,8 +176,24 @@ class Sequential:
                             layer.w = (1 - lr * self.L2_lambd / _B) * layer.w - lr * (Vdw[l] / V_fix) / (np.sqrt(Sdw[l] / S_fix) + self.epsilon)
                             layer.b -= lr * (Vdb[l] / V_fix) / (np.sqrt(Sdb[l] / S_fix) + self.epsilon)
                         else:
-                            layer.w -= lr * (Vdw[l] / V_fix) / (np.sqrt(Sdw[l] / S_fix) + self.epsilon)
-                            layer.b -= lr * (Vdb[l] / V_fix) / (np.sqrt(Sdb[l] / S_fix) + self.epsilon)
+                            _dW = (Vdw[l] / V_fix) / (np.sqrt(Sdw[l] / S_fix) + self.epsilon)
+                            _dB = (Vdb[l] / V_fix) / (np.sqrt(Sdb[l] / S_fix) + self.epsilon)
+
+                            #max_dw = np.amax(np.absolute(_dW))
+                            #max_db = np.amax(np.absolute(_dB))
+
+                            #print('---------------', max_dw, max_db)
+
+                            #if max_dw > 1:
+                            #    _dW /= max_dw
+
+                            #if max_db > 1:
+                            #    _dB /= max_db
+
+                            #print('---------------', np.amax(np.absolute(_dW)), np.amax(np.absolute(_dB)))
+
+                            layer.w -= lr * _dW
+                            layer.b -= lr * _dB
                     else:
                         if self.use_batch_norm:
                             layer.g -= lr * dG
@@ -219,31 +209,33 @@ class Sequential:
         if self.loss == 'log':
             def d_log_loss(_a, _y):
                 if (_y == 1 and _a == 0) or (_y == 0 and _a == 1):
-                    return -10000000000.0
+                    return -10.0
                 elif (_y == 1 and _a == 1) or (_y == 0 and _a == 0):
                     return -1.0
                 else:
                     return -_y/_a + (1 - _y)/(1 - _a)
             return np.vectorize(d_log_loss)(a, y)
         elif self.loss == 'softmax_log':
-            def d_log_loss(_a, _y):
+            def d_softmax_log_loss(_a, _y):
                 if _y == 1 and _a == 0:
-                    return -10000000000.0
+                    return -10.0
                 elif _y == 0 and _a == 0:
-                    return -1.0
+                    return 0.0
                 else:
                     return -_y / _a
-            return np.vectorize(d_log_loss)(a, y)
+            return np.vectorize(d_softmax_log_loss)(a, y)
         else: # self.loss == 'se'
             return 2 * (a - y)
 
     def mean_loss(self, a, y):
         batch_size = y.shape[1]
         if self.loss == 'log':
+            a = a * (1 - 1e-8) + 5e-9
             per_loss = -y * np.log(a) - (1 - y) * np.log(1 - a)
             res = np.sum(per_loss) / batch_size
             return res
         elif self.loss == 'softmax_log':
+            a = a * (1 - 1e-8) + 5e-9
             per_loss = -y * np.log(a)
             res = np.sum(per_loss) / batch_size
             return res

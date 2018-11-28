@@ -25,20 +25,20 @@ class Dense:
         else: # self.activation == 'linear'
             return z
 
-    def d_a(self, z, a):
+    def d_a(self, z, a, da):
         if self.activation == 'sigmoid':
-            return a * (1 - a)
+            return np.multiply(da, a * (1 - a))
         elif self.activation == 'relu':
             def d_relu(z):
                 return 1 if z > 0 else 0
-            return np.vectorize(d_relu)(z)
+            return np.multiply(da, np.vectorize(d_relu)(z))
         elif self.activation == 'x_relu':
             def d_x_relu(v, t, p, n):
                 return p if v > t else n
-            return np.vectorize(d_x_relu)(z, self.x_relu_t, self.x_relu_p, self.x_relu_n)
+            return np.multiply(da, np.vectorize(d_x_relu)(z, self.x_relu_t, self.x_relu_p, self.x_relu_n))
         elif self.activation == 'softmax':
-            a = self.a(z)
-            return a * (1 - a)
+            tmp = np.multiply(da, a)
+            return tmp - np.einsum('ij,kj->ij', a, tmp)
         else: # self.activation == 'linear'
             return 1
 
